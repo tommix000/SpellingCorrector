@@ -1,7 +1,6 @@
 import java.io.File
 
 object SpellingCorrector {
-  val alphabet = "abcdefghijklmnopqrstuvwxyz"
   val logger = java.util.logging.Logger.getLogger(SpellingCorrector.getClass.getName)
 
   /*
@@ -50,6 +49,7 @@ object SpellingCorrector {
    return set(deletes + transposes + replaces + inserts)
    */
   def edits1(word: String): List[(String)] = {
+    val alphabet = 'a' to 'z' toArray
     def split(word: String, list: List[(String, String)], index: Int): List[(String, String)] = {
       if (index == word.length + 1) {
         list
@@ -65,13 +65,13 @@ object SpellingCorrector {
       (list, elem) => list.::(elem._1.concat(elem._2.substring(1, 2)).concat(elem._2.substring(0, 1)).concat(elem._2.substring(2))))
     val replaces = SpellingCorrector.editOp(splits, 1,
       (list, elem) => {
-        SpellingCorrector.alphabet.foldLeft(list) {
+        alphabet.foldLeft(list) {
           (newList, c) => newList.::(elem._1.concat(c.toString).concat(elem._2.substring(1)))
         }
       })
     val inserts = SpellingCorrector.editOp(splits, 0,
       (list, elem) => {
-        SpellingCorrector.alphabet.foldLeft(list) {
+        alphabet.foldLeft(list) {
           (newList, c) => newList.::(elem._1.concat(c.toString).concat(elem._2))
         }
       })
@@ -92,7 +92,7 @@ object SpellingCorrector {
     def known(words): return set(w for w in words if w in NWORDS)
    */
   def edits2(word: String): List[String] = {
-      edits1(word).foldLeft(List.empty[String]) {
+    edits1(word).foldLeft(List.empty[String]) {
       (list, elem) => list ::: edits1(elem)
     }
   }
