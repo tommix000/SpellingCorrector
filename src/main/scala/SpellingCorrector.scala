@@ -91,15 +91,14 @@ object SpellingCorrector {
     return set(e2 for e1 in edits1(word) for e2 in edits1(e1) if e2 in NWORDS)
     def known(words): return set(w for w in words if w in NWORDS)
    */
-  def knownEdits2(word: String, trained: Map[String, Int]): () => List[String] = {
-    () =>
-      val words = edits1(word)
-    words.foldLeft(List.empty[String]) {
-      (list, elem) => list.:::(known(edits1(elem), trained)())
+  def edits2(word: String): List[String] = {
+      edits1(word).foldLeft(List.empty[String]) {
+      (list, elem) => list ::: edits1(elem)
     }
   }
 
   implicit def func2OrChain[A, B](f: A => Either[A, B]) = new OrChain[A, B](f)
+
   class OrChain[A, B](f: A => Either[A, B]) {
     def or(next: A => Either[A, B]): A => Either[A, B] =
       default => f(default).left.flatMap(next)
@@ -122,23 +121,25 @@ object SpellingCorrector {
     val word = args(0)
     val trainingData = train(readWords("training_data/textdata.txt"))
 
-    val candidatesFuncChain = orFunc(known(List(word), trainingData)) or orFunc(known(edits1(word), trainingData)) or orFunc(knownEdits2(word, trainingData))
-    val candidates = candidatesFuncChain(List(word)) match {
+    val candidatesChain =
+      orFunc(known(List(word), trainingData))
+        .or(orFunc(known(edits1(word), trainingData)))
+        .or(orFunc(known(edits2(word), trainingData)))
+
+    val candidates = candidatesChain(List(word)) match {
       case Right(hits) => hits
       case Left(default) => default
     }
 
-    val correction = candidates.foldLeft(new Tuple2("", -1)) {
-      (current, element) => {
+    val correction = candidates.foldLeft(("", -1)) {
+      (max, element) => {
         val elementCount = trainingData.getOrElse(element, 0)
-        if (elementCount > current._2) (element, elementCount) else current
+        if (elementCount > max._2) (element, elementCount) else max
       }
     }
 
     println(s"WORD: $word")
     println(s"CORRECTION: ${correction._1}. Found ${correction._2} times in training data")
-
-    System.exit(0)
   }
 
 }
