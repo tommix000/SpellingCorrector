@@ -27,13 +27,14 @@ object SpellingCorrector {
     }
   }
 
-  def editOp(list: List[(String, String)], minLen: Int, op: (List[String], (String, String)) => List[String]): List[String] = {
+  def editOp(list: List[(String, String)], minLen: Int, op: (List[String], String, String) => List[String]): List[String] = {
     list.foldLeft(List.empty[String]) {
       (list, elem) => {
         if (elem._2.length < minLen) {
           list
         } else {
-          op(list, elem)
+          val (a, b) = elem
+          op(list, a, b)
         }
       }
     }
@@ -60,19 +61,19 @@ object SpellingCorrector {
     val splits = split(word, List.empty[(String, String)], 0)
 
     val deletes = SpellingCorrector.editOp(splits, 1,
-      (list, elem) => list.::(elem._1.concat(elem._2.substring(1))))
+      (list, a, b) => a.concat(b.substring(1)) :: list)
     val transposes = SpellingCorrector.editOp(splits, 2,
-      (list, elem) => list.::(elem._1.concat(elem._2.substring(1, 2)).concat(elem._2.substring(0, 1)).concat(elem._2.substring(2))))
+      (list, a, b) => a.concat(b.substring(1, 2)).concat(b.substring(0, 1)).concat(b.substring(2)) :: list)
     val replaces = SpellingCorrector.editOp(splits, 1,
-      (list, elem) => {
+      (list, a, b) => {
         alphabet.foldLeft(list) {
-          (newList, c) => newList.::(elem._1.concat(c.toString).concat(elem._2.substring(1)))
+          (newList, c) => a.concat(c.toString).concat(b.substring(1)) :: newList
         }
       })
     val inserts = SpellingCorrector.editOp(splits, 0,
-      (list, elem) => {
+      (list, a, b) => {
         alphabet.foldLeft(list) {
-          (newList, c) => newList.::(elem._1.concat(c.toString).concat(elem._2))
+          (newList, c) => a.concat(c.toString).concat(b) :: newList
         }
       })
 
@@ -82,8 +83,12 @@ object SpellingCorrector {
   /*
   def known(words): return set(w for w in words if w in NWORDS)
    */
-  def known(words: List[String], trained: Map[String, Int]): () => List[String] = {
-    () => trained.keys.filter(words.contains(_)).to[List]
+  def known(wordsf: () => List[String], trained: Map[String, Int]): () => List[String] = {
+    () => {
+      val words = wordsf()
+      logger.info(s"Looking up a list of size ${words.size} in training data")
+      for (w <- words; found <- trained.get(w)) yield w
+    }
   }
 
   /*
@@ -92,6 +97,7 @@ object SpellingCorrector {
     def known(words): return set(w for w in words if w in NWORDS)
    */
   def edits2(word: String): List[String] = {
+    logger.info(s"$word or distance 1 variations not found in dictionary. Calculating distance 2 variations")
     edits1(word).foldLeft(List.empty[String]) {
       (list, elem) => list ::: edits1(elem)
     }
@@ -118,13 +124,14 @@ object SpellingCorrector {
   return max(candidates, key=NWORDS.get)
   */
   def main(args: Array[String]): Unit = {
+    val start = System.currentTimeMillis()
     val word = args(0)
     val trainingData = train(readWords("training_data/textdata.txt"))
 
     val candidatesChain =
-      orFunc(known(List(word), trainingData))
-        .or(orFunc(known(edits1(word), trainingData)))
-        .or(orFunc(known(edits2(word), trainingData)))
+      orFunc(known(() => List(word), trainingData))
+        .or(orFunc(known(() => edits1(word), trainingData)))
+        .or(orFunc(known(() => edits2(word), trainingData)))
 
     val candidates = candidatesChain(List(word)) match {
       case Right(hits) => hits
@@ -137,9 +144,11 @@ object SpellingCorrector {
         if (elementCount > max._2) (element, elementCount) else max
       }
     }
+    val stop = System.currentTimeMillis() - start
 
     println(s"WORD: $word")
     println(s"CORRECTION: ${correction._1}. Found ${correction._2} times in training data")
+    println(s"Duration: $stop millis")
   }
 
 }
