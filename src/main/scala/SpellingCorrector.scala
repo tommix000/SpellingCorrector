@@ -83,12 +83,8 @@ object SpellingCorrector {
   /*
   def known(words): return set(w for w in words if w in NWORDS)
    */
-  def known(wordsf: () => List[String], trained: Map[String, Int]): () => List[String] = {
-    () => {
-      val words = wordsf()
-      logger.info(s"Looking up a list of size ${words.size} in training data")
-      for (w <- words; found <- trained.get(w)) yield w
-    }
+  def known(words: => List[String], trained: Map[String, Int]): () => List[String] = {
+    () => for (w <- words; found <- trained.get(w)) yield w
   }
 
   /*
@@ -110,13 +106,10 @@ object SpellingCorrector {
       default => f(default).left.flatMap(next)
   }
 
-  val orFunc =
-    (f: () => List[String]) =>
-      (default: List[String]) => {
-        val list = f()
-        if (!list.isEmpty) Right(list)
-        else Left(default)
-      }
+  val orFunc = (f: () => List[String]) => (default: List[String]) => {
+    val list = f()
+    if (!list.isEmpty) Right(list) else Left(default)
+  }
 
   /*
   def correct(word):
@@ -129,9 +122,9 @@ object SpellingCorrector {
     val trainingData = train(readWords("training_data/textdata.txt"))
 
     val candidatesChain =
-      orFunc(known(() => List(word), trainingData))
-        .or(orFunc(known(() => edits1(word), trainingData)))
-        .or(orFunc(known(() => edits2(word), trainingData)))
+      orFunc(known(List(word), trainingData))
+        .or(orFunc(known(edits1(word), trainingData)))
+        .or(orFunc(known(edits2(word), trainingData)))
 
     val candidates = candidatesChain(List(word)) match {
       case Right(hits) => hits
