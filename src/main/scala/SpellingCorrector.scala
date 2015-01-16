@@ -21,14 +21,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import java.io.File
 
 object SpellingCorrector {
-  val logger = java.util.logging.Logger.getLogger(SpellingCorrector.getClass.getName)
-
   /*
   def words(text): return re.findall('[a-z]+', text.lower())
    */
-  def readWords(filepath: String): List[String] = {
+  private def readWords(filepath: String): List[String] = {
     val file = new File(filepath)
-    logger.info("reading from file " + file.getAbsolutePath)
     scala.io.Source.fromFile(file)
       .getLines
       .flatMap(_.split("\\W+")).toList.map(_.toLowerCase)
@@ -41,13 +38,13 @@ object SpellingCorrector {
         model[f] += 1
     return model
    */
-  def train(words: List[String]): Map[String, Int] = {
+  private def train(words: List[String]): Map[String, Int] = {
     words.foldLeft(Map.empty[String, Int]) {
       (map, elem) => map.updated(elem, map.getOrElse(elem, 0) + 1)
     }
   }
 
-  def editOp(list: List[(String, String)], minLen: Int, op: (List[String], String, String) => List[String]): List[String] = {
+  private def editOp(list: List[(String, String)], minLen: Int, op: (List[String], String, String) => List[String]): List[String] = {
     list.foldLeft(List.empty[String]) {
       (list, elem) => {
         if (elem._2.length < minLen) {
@@ -69,8 +66,8 @@ object SpellingCorrector {
    inserts    = [a + c + b     for a, b in splits for c in alphabet]
    return set(deletes + transposes + replaces + inserts)
    */
-  def edits1(word: String): List[(String)] = {
-    val alphabet = 'a' to 'z' toArray
+  private def edits1(word: String): List[(String)] = {
+    val alphabet = "abcdefghijklmnopqrstuvwxyz"
     def split(word: String, list: List[(String, String)], index: Int): List[(String, String)] = {
       if (index == word.length + 1) {
         list
@@ -103,7 +100,7 @@ object SpellingCorrector {
   /*
   def known(words): return set(w for w in words if w in NWORDS)
    */
-  def known(words: => List[String], trained: Map[String, Int]): () => List[String] = {
+  private def known(words: => List[String], trained: Map[String, Int]): () => List[String] = {
     () => for (w <- words; found <- trained.get(w)) yield w
   }
 
@@ -112,21 +109,20 @@ object SpellingCorrector {
     return set(e2 for e1 in edits1(word) for e2 in edits1(e1) if e2 in NWORDS)
     def known(words): return set(w for w in words if w in NWORDS)
    */
-  def edits2(word: String): List[String] = {
-    logger.info(s"$word or distance 1 variations not found in dictionary. Calculating distance 2 variations")
+  private def edits2(word: String): List[String] = {
     edits1(word).foldLeft(List.empty[String]) {
       (list, elem) => list ::: edits1(elem)
     }
   }
 
-  implicit def func2OrChain[A, B](f: A => Either[A, B]) = new OrChain[A, B](f)
+  implicit private def func2OrChain[A, B](f: A => Either[A, B]) = new OrChain[A, B](f)
 
-  class OrChain[A, B](f: A => Either[A, B]) {
+  private class OrChain[A, B](f: A => Either[A, B]) {
     def or(next: A => Either[A, B]): A => Either[A, B] =
       default => f(default).left.flatMap(next)
   }
 
-  val orFunc = (f: () => List[String]) => (default: List[String]) => {
+  private val orFunc = (f: () => List[String]) => (default: List[String]) => {
     val list = f()
     if (!list.isEmpty) Right(list) else Left(default)
   }
@@ -136,9 +132,7 @@ object SpellingCorrector {
   candidates = known([word]) or known(edits1(word)) or known_edits2(word) or [word]
   return max(candidates, key=NWORDS.get)
   */
-  def main(args: Array[String]): Unit = {
-    val start = System.currentTimeMillis()
-    val word = args(0)
+  def correct(word: String): (String, Int) = {
     val trainingData = train(readWords("training_data/textdata.txt"))
 
     val candidatesChain =
@@ -151,17 +145,12 @@ object SpellingCorrector {
       case Left(default) => default
     }
 
-    val correction = candidates.foldLeft(("", -1)) {
+    candidates.foldLeft(("", -1)) {
       (max, element) => {
         val elementCount = trainingData.getOrElse(element, 0)
         if (elementCount > max._2) (element, elementCount) else max
       }
     }
-    val stop = System.currentTimeMillis() - start
-
-    println(s"WORD: $word")
-    println(s"CORRECTION: ${correction._1}. Found ${correction._2} times in training data")
-    println(s"Duration: $stop millis")
   }
 
 }
