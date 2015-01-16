@@ -3,7 +3,7 @@ A Spelling corrector in Scala inspired by the blog post [How to write a Spelling
 
 ##Usage:
 
-Execute the contained ScalaTest using sbt, which calls the function SpellingCorrector#correct:
+To see the Spelling Corrector in action, execute the contained ScalaTest using sbt, which calls the function SpellingCorrector#correct:
 
 **<prompt>$ sbt test**  
 [info] Loading project definition from .../SpellingCorrector/project  
