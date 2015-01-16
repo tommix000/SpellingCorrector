@@ -7,7 +7,7 @@ Execute the contained ScalaTest using sbt, which calls the function SpellingCorr
 
 **<prompt>$ sbt test**  
 [info] Loading project definition from .../SpellingCorrector/project  
-[info] Set current project to SpellingCorrector (in build file:.../SpellingCorrector/)
+[info] Set current project to SpellingCorrector (in build file:.../SpellingCorrector/)  
 [info] SpellingCorrector$Test:  
 [info] differants  
 [info] - should lead to different  
